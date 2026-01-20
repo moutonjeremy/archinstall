@@ -1,0 +1,304 @@
+#!/bin/bash
+# Application installation script for Arch Linux
+# Run after base installation and first boot
+#
+# Usage: ./apps.sh [apps_file]
+#   apps_file: Optional path to a custom apps list file (default: apps.txt)
+#
+# Example:
+#   ./apps.sh                    # Uses default apps.txt
+#   ./apps.sh my-apps.txt        # Uses custom file
+#   curl -sL .../apps.sh | bash -s -- my-apps.txt
+
+set -e  # Stop on error
+
+# ========================================
+# CONFIGURATION VARIABLES
+# ========================================
+
+# AUR Helper (yay or paru)
+AUR_HELPER="yay"
+
+# Default apps file URL
+DEFAULT_APPS_URL="https://moutonjeremy.github.io/archinstall/apps.txt"
+
+# Apps file (can be overridden via argument)
+# Uses local apps.txt if it exists, otherwise downloads from website
+if [ -n "$1" ]; then
+    APPS_FILE="$1"
+elif [ -f "apps.txt" ]; then
+    APPS_FILE="apps.txt"
+else
+    APPS_FILE="$DEFAULT_APPS_URL"
+fi
+
+# Arrays populated from apps file
+PACMAN_APPS=()
+AUR_APPS=()
+
+# ========================================
+# FUNCTIONS
+# ========================================
+
+print_step() {
+    echo ""
+    echo "========================================="
+    echo ">>> $1"
+    echo "========================================="
+}
+
+check_root() {
+    if [ "$EUID" -eq 0 ]; then
+        echo "✗ Do not run this script as root"
+        echo "Run it as a normal user (with sudo when needed)"
+        exit 1
+    fi
+}
+
+load_apps_file() {
+    print_step "Loading applications from $APPS_FILE"
+
+    # Check if file is a URL
+    if [[ "$APPS_FILE" =~ ^https?:// ]]; then
+        echo "Downloading apps list from URL..."
+        APPS_CONTENT=$(curl -sL "$APPS_FILE")
+        if [ $? -ne 0 ] || [ -z "$APPS_CONTENT" ]; then
+            echo "✗ Failed to download apps file from $APPS_FILE"
+            exit 1
+        fi
+        echo "✓ Downloaded from $APPS_FILE"
+    else
+        # Local file
+        if [ ! -f "$APPS_FILE" ]; then
+            echo "✗ Apps file not found: $APPS_FILE"
+            echo ""
+            echo "Options:"
+            echo "  - Create an apps.txt file in the current directory"
+            echo "  - Specify a custom file: ./apps.sh /path/to/my-apps.txt"
+            echo "  - Run without args to use the default online list"
+            exit 1
+        fi
+        APPS_CONTENT=$(cat "$APPS_FILE")
+        echo "✓ Loaded from local file"
+    fi
+
+    # Parse the file
+    while IFS= read -r line; do
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+
+        # Trim whitespace
+        line=$(echo "$line" | xargs)
+
+        # Check if AUR package
+        if [[ "$line" =~ ^\[aur\][[:space:]]* ]]; then
+            pkg="${line#\[aur\]}"
+            pkg=$(echo "$pkg" | xargs)
+            AUR_APPS+=("$pkg")
+        else
+            PACMAN_APPS+=("$line")
+        fi
+    done <<< "$APPS_CONTENT"
+
+    echo "✓ Loaded ${#PACMAN_APPS[@]} pacman packages"
+    echo "✓ Loaded ${#AUR_APPS[@]} AUR packages"
+}
+
+update_system() {
+    print_step "Updating system"
+    sudo pacman -Syu --noconfirm
+    echo "✓ System up to date"
+}
+
+install_aur_helper() {
+    print_step "Installing AUR helper: $AUR_HELPER"
+
+    if command -v $AUR_HELPER &> /dev/null; then
+        echo "✓ $AUR_HELPER already installed"
+        return
+    fi
+
+    # Install build dependencies
+    sudo pacman -S --needed --noconfirm git base-devel
+
+    # Clone and install
+    cd /tmp
+    git clone "https://aur.archlinux.org/${AUR_HELPER}.git"
+    cd $AUR_HELPER
+    makepkg -si --noconfirm
+    cd ~
+    rm -rf "/tmp/${AUR_HELPER}"
+
+    echo "✓ $AUR_HELPER installed"
+}
+
+install_pacman_apps() {
+    print_step "Installing applications via pacman"
+
+    for app in "${PACMAN_APPS[@]}"; do
+        echo "Installing: $app"
+    done
+
+    sudo pacman -S --needed --noconfirm "${PACMAN_APPS[@]}"
+
+    echo "✓ Pacman applications installed"
+}
+
+install_aur_apps() {
+    print_step "Installing applications via AUR"
+
+    if [ ${#AUR_APPS[@]} -eq 0 ]; then
+        echo "No AUR applications to install"
+        return
+    fi
+
+    for app in "${AUR_APPS[@]}"; do
+        echo "Installing: $app"
+    done
+
+    $AUR_HELPER -S --needed --noconfirm "${AUR_APPS[@]}"
+
+    echo "✓ AUR applications installed"
+}
+
+setup_niri() {
+    print_step "Configuring Niri (Wayland compositor)"
+
+    # Install Niri and its dependencies
+    echo "Installing Niri..."
+    sudo pacman -S --needed --noconfirm \
+        wayland wayland-protocols \
+        xorg-xwayland \
+        mesa \
+        pipewire wireplumber \
+        xdg-desktop-portal xdg-desktop-portal-gtk
+
+    # Install niri from AUR
+    if ! command -v niri &> /dev/null; then
+        echo "Installing niri from AUR..."
+        $AUR_HELPER -S --needed --noconfirm niri-git
+    fi
+
+    # Create configuration directory
+    mkdir -p ~/.config/niri
+
+    # Copy default config if it doesn't exist
+    if [ ! -f ~/.config/niri/config.kdl ]; then
+        if [ -f /usr/share/niri/config.kdl ]; then
+            cp /usr/share/niri/config.kdl ~/.config/niri/config.kdl
+            echo "✓ Default Niri configuration copied"
+        fi
+    fi
+
+    echo "✓ Niri configured"
+    echo "  To start Niri: niri-session"
+}
+
+configure_shell() {
+    print_step "Configuring shell"
+
+    # Change default shell to fish (or zsh based on preference)
+    if command -v fish &> /dev/null; then
+        echo "Changing default shell to fish"
+        sudo chsh -s $(which fish) $USER
+        echo "✓ Shell changed to fish"
+    elif command -v zsh &> /dev/null; then
+        echo "Changing default shell to zsh"
+        sudo chsh -s $(which zsh) $USER
+        echo "✓ Shell changed to zsh"
+    fi
+}
+
+setup_dotfiles() {
+    print_step "Configuring dotfiles"
+
+    # Create base config directories
+    mkdir -p ~/.config/{alacritty,kitty,nvim,fish}
+
+    echo "✓ Configuration directories created"
+    echo "  You can now configure your dotfiles"
+}
+
+install_dev_tools() {
+    print_step "Installing development tools"
+
+    # Languages and dev tools
+    DEV_TOOLS=(
+        "rustup"
+        "nodejs"
+        "npm"
+        "python"
+        "python-pip"
+        "go"
+        "docker"
+        "docker-compose"
+    )
+
+    read -p "Install development tools? (yes/no): " install_dev
+    if [ "$install_dev" = "yes" ]; then
+        sudo pacman -S --needed --noconfirm "${DEV_TOOLS[@]}"
+
+        # Configure Rust
+        if command -v rustup &> /dev/null; then
+            rustup default stable
+        fi
+
+        # Add user to docker group
+        if command -v docker &> /dev/null; then
+            sudo usermod -aG docker $USER
+            sudo systemctl enable docker
+        fi
+
+        echo "✓ Development tools installed"
+    fi
+}
+
+finish_setup() {
+    print_step "Finalizing"
+
+    echo ""
+    echo "========================================="
+    echo "Application installation complete!"
+    echo "========================================="
+    echo ""
+    echo "Next steps:"
+    echo "1. Reboot to apply all changes"
+    echo "2. Configure your dotfiles"
+    echo "3. Start Niri with: niri-session"
+    echo ""
+    echo "Configurations to customize:"
+    echo "  - ~/.config/niri/config.kdl"
+    echo "  - ~/.config/alacritty/alacritty.yml"
+    echo "  - ~/.config/nvim/init.lua"
+    echo ""
+
+    read -p "Reboot now? (yes/no): " reboot_confirm
+    if [ "$reboot_confirm" = "yes" ]; then
+        sudo reboot
+    fi
+}
+
+# ========================================
+# MAIN EXECUTION
+# ========================================
+
+main() {
+    echo "========================================="
+    echo "Arch Linux Application Installation"
+    echo "========================================="
+
+    check_root
+    load_apps_file
+    update_system
+    install_aur_helper
+    install_pacman_apps
+    install_aur_apps
+    setup_niri
+    configure_shell
+    setup_dotfiles
+    install_dev_tools
+    finish_setup
+}
+
+# Run installation
+main

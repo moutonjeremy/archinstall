@@ -1,0 +1,20 @@
+# Arch Linux Applications List
+# Lines starting with # are comments
+# Format: one package per line
+# Prefix with [aur] for AUR packages
+
+# Terminal and shell
+alacritty
+zsh
+
+
+# Wayland compositor (uncomment to install)
+# [aur] niri-git
+niri
+sddm
+fuzzel
+waybar
+
+# Browser (uncomment to install)
+# [aur] brave-bin
+[aur] zen-browser
