@@ -174,7 +174,54 @@ check_network() {
     if ping -c 1 archlinux.org &> /dev/null; then
         echo "✓ Network connection OK"
     else
-        echo "✗ No network connection. Configure your connection before continuing."
+        echo "✗ No network connection detected"
+        echo ""
+        read -p "Configure WiFi? (yes/no): " configure_wifi
+        if [ "$configure_wifi" = "yes" ]; then
+            configure_wifi
+        else
+            echo "Please configure your network connection and restart the script"
+            exit 1
+        fi
+    fi
+}
+
+configure_wifi() {
+    print_step "WiFi configuration"
+
+    # Get wireless interface
+    WIFI_INTERFACE=$(ip link | grep -E "^[0-9]+: wl" | head -1 | cut -d: -f2 | tr -d ' ')
+
+    if [ -z "$WIFI_INTERFACE" ]; then
+        echo "✗ No wireless interface found"
+        exit 1
+    fi
+
+    echo "Wireless interface: $WIFI_INTERFACE"
+    echo ""
+
+    # Scan for networks
+    echo "Scanning for networks..."
+    iwctl station "$WIFI_INTERFACE" scan
+    sleep 2
+    iwctl station "$WIFI_INTERFACE" get-networks
+
+    echo ""
+    read -p "Enter WiFi SSID: " WIFI_SSID
+    read -sp "Enter WiFi password: " WIFI_PASS
+    echo ""
+
+    # Connect
+    iwctl --passphrase "$WIFI_PASS" station "$WIFI_INTERFACE" connect "$WIFI_SSID"
+
+    # Wait for connection
+    echo "Connecting..."
+    sleep 3
+
+    if ping -c 1 archlinux.org &> /dev/null; then
+        echo "✓ WiFi connected successfully"
+    else
+        echo "✗ WiFi connection failed. Check SSID and password."
         exit 1
     fi
 }
@@ -347,7 +394,7 @@ finish_installation() {
     echo "1. Reboot with: reboot"
     echo "2. Remove the installation USB"
     echo "3. Log in with your user"
-    echo "4. Run the apps.sh script"
+    echo "4. Run the configure.sh script"
     echo ""
 
     read -p "Unmount partitions and reboot? (yes/no): " reboot_confirm

@@ -1,4 +1,4 @@
-# Arch Linux Applications List
+# Arch Linux Packages List
 # Lines starting with # are comments
 # Format:
 #   package-name        -> pacman package

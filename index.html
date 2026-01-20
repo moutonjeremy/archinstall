@@ -151,16 +151,16 @@
             </div>
             <p>This script guides you through the complete installation: partitioning, formatting, base system installation, systemd-boot configuration, and user creation.</p>
 
-            <h3><span class="step-number">2</span> Download apps list and run installation (after first boot)</h3>
+            <h3><span class="step-number">2</span> Download packages list and run configuration (after first boot)</h3>
             <div class="command">
-                <code>curl -sLO https://moutonjeremy.github.io/archinstall/apps.txt</code>
+                <code>curl -sLO https://moutonjeremy.github.io/archinstall/packages.txt</code>
             </div>
             <div class="command">
-                <code>curl -sLO https://moutonjeremy.github.io/archinstall/apps.sh && bash apps.sh</code>
+                <code>curl -sLO https://moutonjeremy.github.io/archinstall/configure.sh && bash configure.sh</code>
             </div>
-            <p>Edit <code>apps.txt</code> to customize the packages before running the script. You can also use your own file:</p>
+            <p>Edit <code>packages.txt</code> to customize the packages before running the script. You can also use your own file:</p>
             <div class="command">
-                <code>bash apps.sh /path/to/my-apps.txt</code>
+                <code>bash configure.sh /path/to/my-packages.txt</code>
             </div>
         </section>
 
@@ -177,15 +177,16 @@
                 <li>NetworkManager activation</li>
             </ul>
 
-            <h3>apps.sh - Applications and configuration</h3>
+            <h3>configure.sh - Applications and configuration</h3>
             <ul>
-                <li>Reads package list from <code>apps.txt</code> (local or URL)</li>
+                <li>WiFi configuration via NetworkManager</li>
+                <li>Reads package list from <code>packages.txt</code> (local or URL)</li>
                 <li>yay installation (AUR helper)</li>
-                <li>Supports custom apps file via argument</li>
+                <li>Supports custom packages file via argument</li>
                 <li>Supports custom shell commands</li>
             </ul>
 
-            <h3>apps.txt - Package list format</h3>
+            <h3>packages.txt - Package list format</h3>
             <ul>
                 <li><code>package</code> - pacman package</li>
                 <li><code>[aur] package</code> - AUR package</li>
@@ -215,7 +216,7 @@
                 <li>Connect to WiFi if needed: <code>iwctl</code></li>
                 <li>Run the base.sh script</li>
                 <li>Follow the interactive instructions</li>
-                <li>After reboot, log in and run apps.sh</li>
+                <li>After reboot, log in and run configure.sh</li>
             </ol>
         </section>
 
@@ -223,8 +224,8 @@
             <h2>Download Files</h2>
             <div class="files">
                 <a href="base.sh" class="file-link" download>base.sh</a>
-                <a href="apps.sh" class="file-link" download>apps.sh</a>
-                <a href="apps.txt" class="file-link" download>apps.txt</a>
+                <a href="configure.sh" class="file-link" download>configure.sh</a>
+                <a href="packages.txt" class="file-link" download>packages.txt</a>
             </div>
         </section>
 

@@ -1,13 +1,13 @@
 #!/bin/bash
-# Application installation script for Arch Linux
+# Post-installation configuration script for Arch Linux
 # Run after base installation and first boot
 #
-# Usage: ./apps.sh [apps_file]
-#   apps_file: Optional path to a custom apps list file (default: apps.txt)
+# Usage: ./configure.sh [packages_file]
+#   packages_file: Optional path to a custom packages list file (default: packages.txt)
 #
 # Example:
-#   ./apps.sh                    # Uses default apps.txt
-#   ./apps.sh my-apps.txt        # Uses custom file
+#   ./configure.sh                      # Uses default packages.txt
+#   ./configure.sh my-packages.txt      # Uses custom file
 
 set -e  # Stop on error
 
@@ -18,17 +18,17 @@ set -e  # Stop on error
 # AUR Helper (yay or paru)
 AUR_HELPER="yay"
 
-# Default apps file URL
-DEFAULT_APPS_URL="https://moutonjeremy.github.io/archinstall/apps.txt"
+# Default packages file URL
+DEFAULT_PACKAGES_URL="https://moutonjeremy.github.io/archinstall/packages.txt"
 
-# Apps file (can be overridden via argument)
-# Uses local apps.txt if it exists, otherwise downloads from website
+# Packages file (can be overridden via argument)
+# Uses local packages.txt if it exists, otherwise downloads from website
 if [ -n "$1" ]; then
-    APPS_FILE="$1"
-elif [ -f "apps.txt" ]; then
-    APPS_FILE="apps.txt"
+    PACKAGES_FILE="$1"
+elif [ -f "packages.txt" ]; then
+    PACKAGES_FILE="packages.txt"
 else
-    APPS_FILE="$DEFAULT_APPS_URL"
+    PACKAGES_FILE="$DEFAULT_PACKAGES_URL"
 fi
 
 # Arrays populated from apps file
@@ -55,30 +55,75 @@ check_root() {
     fi
 }
 
-load_apps_file() {
-    print_step "Loading applications from $APPS_FILE"
+configure_wifi() {
+    print_step "WiFi configuration"
+
+    # Check if already connected
+    if ping -c 1 archlinux.org &> /dev/null; then
+        echo "✓ Already connected to internet"
+        return
+    fi
+
+    read -p "Configure WiFi? (yes/no): " setup_wifi
+    if [ "$setup_wifi" != "yes" ]; then
+        echo "Skipping WiFi configuration"
+        return
+    fi
+
+    # Check if nmcli is available
+    if ! command -v nmcli &> /dev/null; then
+        echo "✗ NetworkManager not found"
+        exit 1
+    fi
+
+    # List available networks
+    echo "Scanning for networks..."
+    nmcli device wifi rescan 2>/dev/null || true
+    sleep 2
+    nmcli device wifi list
+
+    echo ""
+    read -p "Enter WiFi SSID: " WIFI_SSID
+    read -sp "Enter WiFi password: " WIFI_PASS
+    echo ""
+
+    # Connect
+    nmcli device wifi connect "$WIFI_SSID" password "$WIFI_PASS"
+
+    # Verify connection
+    sleep 2
+    if ping -c 1 archlinux.org &> /dev/null; then
+        echo "✓ WiFi connected successfully"
+    else
+        echo "✗ WiFi connection failed"
+        exit 1
+    fi
+}
+
+load_packages_file() {
+    print_step "Loading packages from $PACKAGES_FILE"
 
     # Check if file is a URL
-    if [[ "$APPS_FILE" =~ ^https?:// ]]; then
-        echo "Downloading apps list from URL..."
-        APPS_CONTENT=$(curl -sL "$APPS_FILE")
-        if [ $? -ne 0 ] || [ -z "$APPS_CONTENT" ]; then
-            echo "✗ Failed to download apps file from $APPS_FILE"
+    if [[ "$PACKAGES_FILE" =~ ^https?:// ]]; then
+        echo "Downloading packages list from URL..."
+        PACKAGES_CONTENT=$(curl -sL "$PACKAGES_FILE")
+        if [ $? -ne 0 ] || [ -z "$PACKAGES_CONTENT" ]; then
+            echo "✗ Failed to download packages file from $PACKAGES_FILE"
             exit 1
         fi
-        echo "✓ Downloaded from $APPS_FILE"
+        echo "✓ Downloaded from $PACKAGES_FILE"
     else
         # Local file
-        if [ ! -f "$APPS_FILE" ]; then
-            echo "✗ Apps file not found: $APPS_FILE"
+        if [ ! -f "$PACKAGES_FILE" ]; then
+            echo "✗ Packages file not found: $PACKAGES_FILE"
             echo ""
             echo "Options:"
-            echo "  - Create an apps.txt file in the current directory"
-            echo "  - Specify a custom file: ./apps.sh /path/to/my-apps.txt"
+            echo "  - Create a packages.txt file in the current directory"
+            echo "  - Specify a custom file: ./configure.sh /path/to/my-packages.txt"
             echo "  - Run without args to use the default online list"
             exit 1
         fi
-        APPS_CONTENT=$(cat "$APPS_FILE")
+        PACKAGES_CONTENT=$(cat "$PACKAGES_FILE")
         echo "✓ Loaded from local file"
     fi
 
@@ -103,7 +148,7 @@ load_apps_file() {
         else
             PACMAN_APPS+=("$line")
         fi
-    done <<< "$APPS_CONTENT"
+    done <<< "$PACKAGES_CONTENT"
 
     echo "✓ Loaded ${#PACMAN_APPS[@]} pacman packages"
     echo "✓ Loaded ${#AUR_APPS[@]} AUR packages"
@@ -193,7 +238,7 @@ finish_setup() {
 
     echo ""
     echo "========================================="
-    echo "Application installation complete!"
+    echo "Configuration complete!"
     echo "========================================="
     echo ""
 
@@ -209,11 +254,12 @@ finish_setup() {
 
 main() {
     echo "========================================="
-    echo "Arch Linux Application Installation"
+    echo "Arch Linux Post-Installation Configuration"
     echo "========================================="
 
     check_root
-    load_apps_file
+    configure_wifi
+    load_packages_file
     update_system
     install_aur_helper
     install_pacman_apps
@@ -222,5 +268,5 @@ main() {
     finish_setup
 }
 
-# Run installation
+# Run configuration
 main

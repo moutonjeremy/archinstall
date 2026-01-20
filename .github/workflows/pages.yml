@@ -32,8 +32,8 @@ jobs:
         run: |
           cp index.html _site/
           cp base.sh _site/
-          cp apps.sh _site/
-          cp apps.txt _site/
+          cp configure.sh _site/
+          cp packages.txt _site/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
