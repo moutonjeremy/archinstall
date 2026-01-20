@@ -17,4 +17,5 @@ waybar
 
 # Browser (uncomment to install)
 # [aur] brave-bin
-[aur] zen-browser
+# [aur] zen-browser
+firefox
