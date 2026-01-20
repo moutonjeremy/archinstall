@@ -147,20 +147,20 @@
 
             <h3><span class="step-number">1</span> Base installation (from the Arch ISO)</h3>
             <div class="command">
-                <code>curl -sL https://moutonjeremy.github.io/archinstall/base.sh | bash</code>
+                <code>curl -sLO https://moutonjeremy.github.io/archinstall/base.sh && bash base.sh</code>
             </div>
-            <p>This script guides you through the complete installation: partitioning, formatting, base system installation, GRUB configuration, and user creation.</p>
+            <p>This script guides you through the complete installation: partitioning, formatting, base system installation, systemd-boot configuration, and user creation.</p>
 
             <h3><span class="step-number">2</span> Download apps list and run installation (after first boot)</h3>
             <div class="command">
                 <code>curl -sLO https://moutonjeremy.github.io/archinstall/apps.txt</code>
             </div>
             <div class="command">
-                <code>curl -sL https://moutonjeremy.github.io/archinstall/apps.sh | bash</code>
+                <code>curl -sLO https://moutonjeremy.github.io/archinstall/apps.sh && bash apps.sh</code>
             </div>
             <p>Edit <code>apps.txt</code> to customize the packages before running the script. You can also use your own file:</p>
             <div class="command">
-                <code>curl -sL https://moutonjeremy.github.io/archinstall/apps.sh | bash -s -- /path/to/my-apps.txt</code>
+                <code>bash apps.sh /path/to/my-apps.txt</code>
             </div>
         </section>
 
