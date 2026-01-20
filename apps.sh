@@ -8,7 +8,6 @@
 # Example:
 #   ./apps.sh                    # Uses default apps.txt
 #   ./apps.sh my-apps.txt        # Uses custom file
-#   curl -sL .../apps.sh | bash -s -- my-apps.txt
 
 set -e  # Stop on error
 
@@ -35,6 +34,7 @@ fi
 # Arrays populated from apps file
 PACMAN_APPS=()
 AUR_APPS=()
+CUSTOM_COMMANDS=()
 
 # ========================================
 # FUNCTIONS
@@ -90,8 +90,13 @@ load_apps_file() {
         # Trim whitespace
         line=$(echo "$line" | xargs)
 
+        # Check if custom command
+        if [[ "$line" =~ ^\[cmd\][[:space:]]* ]]; then
+            cmd="${line#\[cmd\]}"
+            cmd=$(echo "$cmd" | xargs)
+            CUSTOM_COMMANDS+=("$cmd")
         # Check if AUR package
-        if [[ "$line" =~ ^\[aur\][[:space:]]* ]]; then
+        elif [[ "$line" =~ ^\[aur\][[:space:]]* ]]; then
             pkg="${line#\[aur\]}"
             pkg=$(echo "$pkg" | xargs)
             AUR_APPS+=("$pkg")
@@ -102,6 +107,7 @@ load_apps_file() {
 
     echo "✓ Loaded ${#PACMAN_APPS[@]} pacman packages"
     echo "✓ Loaded ${#AUR_APPS[@]} AUR packages"
+    echo "✓ Loaded ${#CUSTOM_COMMANDS[@]} custom commands"
 }
 
 update_system() {
@@ -135,8 +141,13 @@ install_aur_helper() {
 install_pacman_apps() {
     print_step "Installing applications via pacman"
 
+    if [ ${#PACMAN_APPS[@]} -eq 0 ]; then
+        echo "No pacman applications to install"
+        return
+    fi
+
     for app in "${PACMAN_APPS[@]}"; do
-        echo "Installing: $app"
+        echo "  - $app"
     done
 
     sudo pacman -S --needed --noconfirm "${PACMAN_APPS[@]}"
@@ -153,7 +164,7 @@ install_aur_apps() {
     fi
 
     for app in "${AUR_APPS[@]}"; do
-        echo "Installing: $app"
+        echo "  - $app"
     done
 
     $AUR_HELPER -S --needed --noconfirm "${AUR_APPS[@]}"
@@ -161,96 +172,20 @@ install_aur_apps() {
     echo "✓ AUR applications installed"
 }
 
-setup_niri() {
-    print_step "Configuring Niri (Wayland compositor)"
+run_custom_commands() {
+    print_step "Running custom commands"
 
-    # Install Niri and its dependencies
-    echo "Installing Niri..."
-    sudo pacman -S --needed --noconfirm \
-        wayland wayland-protocols \
-        xorg-xwayland \
-        mesa \
-        pipewire wireplumber \
-        xdg-desktop-portal xdg-desktop-portal-gtk
-
-    # Install niri from AUR
-    if ! command -v niri &> /dev/null; then
-        echo "Installing niri from AUR..."
-        $AUR_HELPER -S --needed --noconfirm niri-git
+    if [ ${#CUSTOM_COMMANDS[@]} -eq 0 ]; then
+        echo "No custom commands to run"
+        return
     fi
 
-    # Create configuration directory
-    mkdir -p ~/.config/niri
+    for cmd in "${CUSTOM_COMMANDS[@]}"; do
+        echo "Running: $cmd"
+        eval "$cmd"
+    done
 
-    # Copy default config if it doesn't exist
-    if [ ! -f ~/.config/niri/config.kdl ]; then
-        if [ -f /usr/share/niri/config.kdl ]; then
-            cp /usr/share/niri/config.kdl ~/.config/niri/config.kdl
-            echo "✓ Default Niri configuration copied"
-        fi
-    fi
-
-    echo "✓ Niri configured"
-    echo "  To start Niri: niri-session"
-}
-
-configure_shell() {
-    print_step "Configuring shell"
-
-    # Change default shell to fish (or zsh based on preference)
-    if command -v fish &> /dev/null; then
-        echo "Changing default shell to fish"
-        sudo chsh -s $(which fish) $USER
-        echo "✓ Shell changed to fish"
-    elif command -v zsh &> /dev/null; then
-        echo "Changing default shell to zsh"
-        sudo chsh -s $(which zsh) $USER
-        echo "✓ Shell changed to zsh"
-    fi
-}
-
-setup_dotfiles() {
-    print_step "Configuring dotfiles"
-
-    # Create base config directories
-    mkdir -p ~/.config/{alacritty,kitty,nvim,fish}
-
-    echo "✓ Configuration directories created"
-    echo "  You can now configure your dotfiles"
-}
-
-install_dev_tools() {
-    print_step "Installing development tools"
-
-    # Languages and dev tools
-    DEV_TOOLS=(
-        "rustup"
-        "nodejs"
-        "npm"
-        "python"
-        "python-pip"
-        "go"
-        "docker"
-        "docker-compose"
-    )
-
-    read -p "Install development tools? (yes/no): " install_dev
-    if [ "$install_dev" = "yes" ]; then
-        sudo pacman -S --needed --noconfirm "${DEV_TOOLS[@]}"
-
-        # Configure Rust
-        if command -v rustup &> /dev/null; then
-            rustup default stable
-        fi
-
-        # Add user to docker group
-        if command -v docker &> /dev/null; then
-            sudo usermod -aG docker $USER
-            sudo systemctl enable docker
-        fi
-
-        echo "✓ Development tools installed"
-    fi
+    echo "✓ Custom commands executed"
 }
 
 finish_setup() {
@@ -260,16 +195,6 @@ finish_setup() {
     echo "========================================="
     echo "Application installation complete!"
     echo "========================================="
-    echo ""
-    echo "Next steps:"
-    echo "1. Reboot to apply all changes"
-    echo "2. Configure your dotfiles"
-    echo "3. Start Niri with: niri-session"
-    echo ""
-    echo "Configurations to customize:"
-    echo "  - ~/.config/niri/config.kdl"
-    echo "  - ~/.config/alacritty/alacritty.yml"
-    echo "  - ~/.config/nvim/init.lua"
     echo ""
 
     read -p "Reboot now? (yes/no): " reboot_confirm
@@ -293,10 +218,7 @@ main() {
     install_aur_helper
     install_pacman_apps
     install_aur_apps
-    setup_niri
-    configure_shell
-    setup_dotfiles
-    install_dev_tools
+    run_custom_commands
     finish_setup
 }
 

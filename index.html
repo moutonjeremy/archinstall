@@ -182,16 +182,15 @@
                 <li>Reads package list from <code>apps.txt</code> (local or URL)</li>
                 <li>yay installation (AUR helper)</li>
                 <li>Supports custom apps file via argument</li>
-                <li>Niri (Wayland compositor)</li>
-                <li>Optional dev tools (Rust, Node, Python, Go, Docker)</li>
-                <li>Dotfiles configuration</li>
+                <li>Supports custom shell commands</li>
             </ul>
 
             <h3>apps.txt - Package list format</h3>
             <ul>
-                <li>One package per line</li>
+                <li><code>package</code> - pacman package</li>
+                <li><code>[aur] package</code> - AUR package</li>
+                <li><code>[cmd] command</code> - custom shell command</li>
                 <li>Lines starting with <code>#</code> are comments</li>
-                <li>Prefix with <code>[aur]</code> for AUR packages</li>
             </ul>
         </section>
 

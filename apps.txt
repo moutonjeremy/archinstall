@@ -1,21 +1,23 @@
 # Arch Linux Applications List
 # Lines starting with # are comments
-# Format: one package per line
-# Prefix with [aur] for AUR packages
+# Format:
+#   package-name        -> pacman package
+#   [aur] package-name  -> AUR package
+#   [cmd] command       -> custom shell command
 
 # Terminal and shell
 alacritty
 zsh
 
-
-# Wayland compositor (uncomment to install)
-# [aur] niri-git
+# Wayland compositor
 niri
 sddm
 fuzzel
 waybar
 
-# Browser (uncomment to install)
-# [aur] brave-bin
-# [aur] zen-browser
+# Browser
 firefox
+
+# Custom commands (examples)
+[cmd] sudo systemctl enable sddm
+[cmd] chsh -s /usr/bin/zsh
